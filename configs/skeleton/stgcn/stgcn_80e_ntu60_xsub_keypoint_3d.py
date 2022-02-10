@@ -14,8 +14,8 @@ model = dict(
     test_cfg=None)
 
 dataset_type = 'PoseDataset'
-ann_file_train = '/data_volume/data/ntu/ntu60/xsub/train.pkl'
-ann_file_val = '/data_volume/data/ntu/ntu60/xsub/val.pkl'
+ann_file_train = '/data_volume/data/ntu60/annot_file/xsub/train.pkl'
+ann_file_val = '/data_volume/data/ntu60/annot_file/xsub/val.pkl'
 train_pipeline = [
     dict(type='PaddingWithLoop', clip_len=300),
     dict(type='PoseDecode'),
