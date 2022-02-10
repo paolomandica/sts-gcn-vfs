@@ -1,6 +1,6 @@
 from mmaction.utils import add_prefix
 from .. import builder
-from ..common import images2video, video2images
+# from ..common import images2video, video2images
 from ..builder import RECOGNIZERS
 from .base import BaseTracker
 
@@ -51,7 +51,7 @@ class SimSiamBaseTracker(BaseTracker):
                         prefix=f'{i}'))
         return losses
 
-    def forward_train(self, skeletons, labels, **kwargs):
+    def forward_train(self, skeletons, **kwargs): # ,labels
         """Defines the computation performed at every call when training."""
         losses = dict()
 

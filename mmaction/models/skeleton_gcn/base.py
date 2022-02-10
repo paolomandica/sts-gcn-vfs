@@ -45,7 +45,7 @@ class BaseTracker(nn.Module, metaclass=ABCMeta):
 
     def init_weights(self):
         """Initialize the model network weights."""
-        self.backbone.init_weights()
+        # self.backbone.init_weights()
         if self.with_cls_head:
             self.cls_head.init_weights()
 
