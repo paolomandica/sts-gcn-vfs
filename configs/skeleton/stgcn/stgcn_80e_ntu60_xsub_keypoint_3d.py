@@ -14,8 +14,8 @@ model = dict(
     test_cfg=None)
 
 dataset_type = 'PoseDataset'
-ann_file_train = 'data/ntu/nturgb+d_skeletons_60_3d_nmtvc/xsub/train.pkl'
-ann_file_val = 'data/ntu/nturgb+d_skeletons_60_3d_nmtvc/xsub/val.pkl'
+ann_file_train = '/data_volume/data/ntu/ntu60/xsub/train.pkl'
+ann_file_val = '/data_volume/data/ntu/ntu60/xsub/val.pkl'
 train_pipeline = [
     dict(type='PaddingWithLoop', clip_len=300),
     dict(type='PoseDecode'),
@@ -66,7 +66,27 @@ lr_config = dict(policy='step', step=[10, 50])
 total_epochs = 80
 checkpoint_config = dict(interval=3)
 evaluation = dict(interval=3, metrics=['top_k_accuracy'])
-log_config = dict(interval=100, hooks=[dict(type='TextLoggerHook')])
+log_config = dict(
+    interval=50,
+    hooks=[
+        dict(type='TextLoggerHook'),
+        dict(type='WandbLoggerHook',
+             init_kwargs=dict(
+                 project='skeleton',
+                 entity='sapienzavideocontrastive',
+                 dir='wandb',
+                 config=dict(
+                     model=model,
+                     train_pipeline=train_pipeline,
+                     data=data,
+                     optimizer=optimizer,
+                     optimizer_config=optimizer_config,
+                     lr_config=lr_config,
+                     total_epochs=total_epochs
+                 )
+             ),
+             interval=10)
+    ])
 
 # runtime settings
 dist_params = dict(backend='nccl')
