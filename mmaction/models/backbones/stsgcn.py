@@ -62,7 +62,7 @@ class ConvTemporalGraphical(nn.Module):
         ## x=self.prelu(x)
         x = torch.einsum('nctv,tvw->nctw', (x, self.A))
         ## x = torch.einsum('nctv,wvtq->ncqw', (x, self.Z))
-        return x.contiguous() 
+        return x.contiguous()
 
 
 
@@ -96,17 +96,16 @@ class ST_GCNN_layer(nn.Module):
         self.kernel_size = kernel_size
         assert self.kernel_size[0] % 2 == 1
         assert self.kernel_size[1] % 2 == 1
-        padding = ((self.kernel_size[0] - 1) // 2,(self.kernel_size[1] - 1) // 2)
+        padding = ((self.kernel_size[0] - 1) // 2,(self.kernel_size[1] - 1) // 2) # ((self.kernel_size[0] - 1) // 2,(self.kernel_size[1] - 1) // 2)
         
-        
-        self.gcn=ConvTemporalGraphical(time_dim,joints_dim) # the convolution layer
+        self.gcn=ConvTemporalGraphical(time_dim, joints_dim) # the convolution layer
         
         self.tcn = nn.Sequential(
             nn.Conv2d(
                 in_channels,
                 out_channels,
                 (self.kernel_size[0], self.kernel_size[1]),
-                (stride, stride),
+                (stride[0], stride[1]),
                 padding,
             ),
             nn.BatchNorm2d(out_channels),
@@ -118,13 +117,13 @@ class ST_GCNN_layer(nn.Module):
         
                 
         
-        if stride != 1 or in_channels != out_channels: 
+        if stride[0] != 1 or stride[1] != 1 or in_channels != out_channels: 
 
             self.residual=nn.Sequential(nn.Conv2d(
                     in_channels,
                     out_channels,
                     kernel_size=1,
-                    stride=(1, 1)),
+                    stride=(stride[0], stride[1])),
                 nn.BatchNorm2d(out_channels),
             )
             
@@ -201,6 +200,8 @@ class STSGCN(nn.Module):
                  input_time_frame,
                  st_gcnn_dropout,
                  joints_to_consider,
+                 siamese=False,
+                 pretrained=None,
                 #  output_time_frame,
                 #  n_txcnn_layers,
                 #  txc_kernel_size,
@@ -208,40 +209,65 @@ class STSGCN(nn.Module):
                  bias=True):
         
         super().__init__()
-        self.input_time_frame=input_time_frame
+        if siamese:
+            self.input_time_frame=input_time_frame//2
+        else:
+            self.input_time_frame=input_time_frame
         # self.output_time_frame=output_time_frame
         self.joints_to_consider=joints_to_consider
         self.st_gcnns=nn.ModuleList()
         # self.n_txcnn_layers=n_txcnn_layers
-        # self.txcnns=nn.ModuleList()
-        
+        # self.txcnns=nn.ModuleList()        
       
-        self.st_gcnns.append(ST_GCNN_layer(input_channels,32,[1,1],1,input_time_frame,
+        self.st_gcnns.append(ST_GCNN_layer(input_channels,32,[1,1],[1,1],self.input_time_frame,
                                            joints_to_consider,st_gcnn_dropout))
-        self.st_gcnns.append(ST_GCNN_layer(32,64,[1,1],1,input_time_frame,
+        self.st_gcnns.append(ST_GCNN_layer(32,64,[1,1],[1,1],self.input_time_frame,
                                                joints_to_consider,st_gcnn_dropout))
             
-        self.st_gcnns.append(ST_GCNN_layer(64,128,[1,1],1,input_time_frame,
+        self.st_gcnns.append(ST_GCNN_layer(64,128,[1,1],[1,1],self.input_time_frame,
                                                joints_to_consider,st_gcnn_dropout))
                                                
-        self.st_gcnns.append(ST_GCNN_layer(128,256,[1,1],1,input_time_frame,
-                                               joints_to_consider,st_gcnn_dropout))                                               
-                
+        self.st_gcnns.append(ST_GCNN_layer(128,256,[1,1],[1,1],self.input_time_frame,
+                                               joints_to_consider,st_gcnn_dropout))                
                 
                 # at this point, we must permute the dimensions of the gcn network, from (N,C,T,V) into (N,T,C,V)           
         # self.txcnns.append(CNN_layer(input_time_frame,output_time_frame,txc_kernel_size,txc_dropout)) # with kernel_size[3,3] the dimensinons of C,V will be maintained       
         # for i in range(1,n_txcnn_layers):
         #     self.txcnns.append(CNN_layer(output_time_frame,output_time_frame,txc_kernel_size,txc_dropout))
         
-            
+        
         # self.prelus = nn.ModuleList()
         # for j in range(n_txcnn_layers):
         #     self.prelus.append(nn.PReLU())
+        self.pretrained = pretrained
 
+    def init_weights(self):
+        """Initiate the parameters either from existing checkpoint or from
+        scratch."""
+        if isinstance(self.pretrained, str):
+            logger = get_root_logger()
+            logger.info(f'load model from: {self.pretrained}')
 
+            load_checkpoint(self, self.pretrained,
+                            strict=False,
+                            logger=logger,
+                            revise_keys=[(r'^backbone\.', '')])
+            
+        elif self.pretrained is None:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    kaiming_init(m)
+                elif isinstance(m, nn.Linear):
+                    normal_init(m)
+                elif isinstance(m, _BatchNorm):
+                    constant_init(m, 1)
+        else:
+            raise TypeError('pretrained must be a str or None')
         
 
     def forward(self, x):
+
+        # breakpoint()
 
         # data normalization
         x = x.float()
@@ -257,6 +283,7 @@ class STSGCN(nn.Module):
 
         for gcn in (self.st_gcnns):
             x = gcn(x)
+        
             
         # x= x.permute(0,2,1,3) # prepare the input for the Time-Extrapolator-CNN (NCTV->NTCV)
         
