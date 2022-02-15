@@ -9,6 +9,10 @@ import time
 class SkeletonGCN(BaseGCN):
     """Spatial temporal graph convolutional networks."""
 
+    def init_weights(self):
+        super().init_weights()
+        self.backbone.freeze_weights()
+
     def forward_train(self, skeletons, labels, **kwargs):
         """Defines the computation performed at every call when training."""
         assert self.with_cls_head

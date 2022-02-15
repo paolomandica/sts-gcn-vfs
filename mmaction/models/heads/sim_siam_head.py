@@ -153,14 +153,14 @@ class SimSiamHead(nn.Module):
             torch.Tensor: The classification scores for input samples.
         """
 
-        B,C,T,V = x.shape
-        x = x.permute(0,1,3,2).contiguous().view(-1, T)
+        B, C, T, V = x.shape
+        x = x.permute(0, 1, 3, 2).contiguous().view(-1, T)
         x = self.time_aggregation(x)
-        x = x.view(B,C,V,-1).permute(0,1,3,2)
-        B,C,T,V = x.shape
+        x = x.view(B, C, V, -1).permute(0, 1, 3, 2)
+        B, C, T, V = x.shape
         x = x.contiguous().view(-1, V)
         x = self.joint_aggregation(x)
-        x = x.view(B,C,T).permute(0,2,1).flatten(0,1)
+        x = x.view(B, C, T).permute(0, 2, 1).flatten(0, 1)
 
         x = self.convs(x)
         for layer in self.order:
@@ -169,6 +169,7 @@ class SimSiamHead(nn.Module):
                 x = x.flatten(1)
             if layer == 'drop':
                 x = self.dropout(x)
+
         z = self.projection_fcs(x)
         p = self.predictor_fcs(z)
 
