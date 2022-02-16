@@ -21,7 +21,7 @@ class SiamSkeletonGCN(BaseGCN):
 
     def init_weights(self):
         """Initialize the model network weights.
-        
+
         Added for STSGCN.
         """
         if self.with_cls_head:
@@ -31,7 +31,7 @@ class SiamSkeletonGCN(BaseGCN):
     def with_sim_head(self):
         """bool: whether the detector has sim head"""
         return hasattr(self, 'sim_head') and self.sim_head is not None
-    
+
     def init_extra_weights(self):
         if self.with_sim_head:
             self.sim_head.init_weights()
@@ -39,31 +39,32 @@ class SiamSkeletonGCN(BaseGCN):
     def forward_sim_head(self, x1, x2, T):
 
         B, C, _, V = x1.shape
-        
+
         losses = dict()
         z1, p1 = self.sim_head(x1)
-        z2, p2 = self.sim_head(x2) #.permute(0,2,1).flatten(0,1)   
-        
-        loss_weight = 1. / T
+        z2, p2 = self.sim_head(x2)  # .permute(0,2,1).flatten(0,1)
+
+        # loss_weight = 1. / T
+        loss_weight = 1.
 
         losses.update(
             add_prefix(
                 self.sim_head.loss(p1, z1, p2, z2, weight=loss_weight),
                 prefix='0'))
 
-        z2_v, p2_v = z2.view(B, T, C), p2.view(B, T, C)
+        # z2_v, p2_v = z2.view(B, T, C), p2.view(B, T, C)
 
-        for i in range(1, T):
-            losses.update(
-                add_prefix(
-                    self.sim_head.loss(
-                        p1,
-                        z1,
-                        p2_v.roll(i, dims=1).flatten(0, 1),
-                        z2_v.roll(i, dims=1).flatten(0, 1),
-                        weight=loss_weight),
-                    prefix=f'{i}'))
-        
+        # for i in range(1, T):
+        #     losses.update(
+        #         add_prefix(
+        #             self.sim_head.loss(
+        #                 p1,
+        #                 z1,
+        #                 p2_v.roll(i, dims=1).flatten(0, 1),
+        #                 z2_v.roll(i, dims=1).flatten(0, 1),
+        #                 weight=loss_weight),
+        #             prefix=f'{i}'))
+
         return losses
 
     def forward_train(self, skeletons, labels, **kwargs):
@@ -73,7 +74,7 @@ class SiamSkeletonGCN(BaseGCN):
 
         # (64, 3, 300, 25, 2)
         B, C, T, V, M = skeletons.shape
-        skeletons_1, skeletons_2 = skeletons[:,:,:T//2], skeletons[:,:,T//2:]
+        skeletons_1, skeletons_2 = skeletons[:, :, :T//2], skeletons[:, :, T//2:]
 
         x1 = self.extract_feat(skeletons_1)
         x2 = self.extract_feat(skeletons_2)

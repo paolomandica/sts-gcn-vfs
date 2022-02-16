@@ -48,13 +48,15 @@ class SimSiamHead(nn.Module):
                  drop_predictor_fc=False,
                  with_norm=True,
                  loss_feat=dict(type='CosineSimLoss', negative=False),
-                 spatial_type='avg'):
+                 spatial_type='avg',
+                 num_person=2):
         super().__init__()
         self.in_channels = in_channels
         self.num_convs = num_convs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.act_cfg = act_cfg
+        self.num_person = num_person
         self.with_norm = with_norm
         self.loss_feat = build_loss(loss_feat)
         convs = []
@@ -77,8 +79,8 @@ class SimSiamHead(nn.Module):
         else:
             self.convs = nn.Identity()
 
-        self.time_aggregation = nn.Linear(aggregation_time_in, aggregation_time_out)
-        self.joint_aggregation = nn.Linear(aggregation_joints_in, aggregation_joints_out)
+        # self.time_aggregation = nn.Linear(aggregation_time_in, aggregation_time_out)
+        # self.joint_aggregation = nn.Linear(aggregation_joints_in, aggregation_joints_out)
 
         projection_fcs = []
         for i in range(num_projection_fcs):
@@ -122,6 +124,7 @@ class SimSiamHead(nn.Module):
             self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         else:
             self.avg_pool = nn.Identity()
+
         if drop_layer_cfg is not None:
             self.dropout = build_drop_layer(drop_layer_cfg)
         else:
@@ -153,20 +156,21 @@ class SimSiamHead(nn.Module):
             torch.Tensor: The classification scores for input samples.
         """
 
-        B, C, T, V = x.shape
-        x = x.permute(0, 1, 3, 2).contiguous().view(-1, T)
-        x = self.time_aggregation(x)
-        x = x.view(B, C, V, -1).permute(0, 1, 3, 2)
-        B, C, T, V = x.shape
-        x = x.contiguous().view(-1, V)
-        x = self.joint_aggregation(x)
-        x = x.view(B, C, T).permute(0, 2, 1).flatten(0, 1)
+        # B, C, T, V = x.shape
+        # x = x.permute(0, 1, 3, 2).contiguous().view(-1, T)
+        # x = self.time_aggregation(x)
+        # x = x.view(B, C, V, -1).permute(0, 1, 3, 2)
+        # B, C, T, V = x.shape
+        # x = x.contiguous().view(-1, V)
+        # x = self.joint_aggregation(x)
+        # x = x.view(B, C, T).permute(0, 2, 1).flatten(0, 1)
 
         x = self.convs(x)
         for layer in self.order:
             if layer == 'pool':
                 x = self.avg_pool(x)
                 x = x.flatten(1)
+                x = x.view(x.shape[0] // self.num_person, self.num_person, -1).mean(dim=1)
             if layer == 'drop':
                 x = self.dropout(x)
 

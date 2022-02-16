@@ -23,8 +23,8 @@ model = dict(
         predictor_out_channels=256,
         with_norm=True,
         loss_feat=dict(type='CosineSimLoss', negative=False),
-        spatial_type=None
-        ),
+        spatial_type='avg'
+    ),
     train_cfg=None,
     test_cfg=None)
 
@@ -74,15 +74,15 @@ data = dict(
 
 # optimizer
 # optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True)
-optimizer = dict(type='Adam', lr=1e-04, weight_decay=1e-05) 
+optimizer = dict(type='Adam', lr=1e-04, weight_decay=1e-05)
 optimizer_config = dict(grad_clip=None)
 # learning policy
 lr_config = dict(policy='step', step=[50, 100, 150])
 total_epochs = 200
-checkpoint_config = dict(interval=10)
+checkpoint_config = dict(interval=5)
 evaluation = dict(interval=5, metrics=['top_k_accuracy'])
 log_config = dict(
-    interval=10,
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='WandbLoggerHook',
