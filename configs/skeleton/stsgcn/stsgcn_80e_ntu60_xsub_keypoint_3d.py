@@ -7,7 +7,7 @@ model = dict(
         st_gcnn_dropout=0.1,
         joints_to_consider=25,
         siamese=False,
-        pretrained='./work_dirs/siam_stsgcn_80e_ntu60_xsub_keypoint_3d/epoch_180.pth',
+        pretrained='./work_dirs/siam_stsgcn_80e_ntu60_xsub_keypoint_3d/epoch_70.pth',
         freeze=True),
     cls_head=dict(
         type='STGCNHead',
@@ -62,10 +62,11 @@ data = dict(
         pipeline=test_pipeline))
 
 # optimizer
-optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True) # dict(type='Adam', lr=1e-02, weight_decay=1e-05) 
+optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001,
+                 nesterov=True)  # dict(type='Adam', lr=1e-02, weight_decay=1e-05)
 optimizer_config = dict(grad_clip=None)
 # learning policy
-lr_config = dict(policy='step', step=[15,25,35,50])
+lr_config = dict(policy='step', step=[15, 25, 35, 50])
 total_epochs = 50
 checkpoint_config = dict(interval=5)
 evaluation = dict(interval=5, metrics=['top_k_accuracy'])

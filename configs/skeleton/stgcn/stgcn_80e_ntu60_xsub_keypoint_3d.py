@@ -4,7 +4,9 @@ model = dict(
         type='STGCN',
         in_channels=3,
         edge_importance_weighting=True,
-        graph_cfg=dict(layout='ntu-rgb+d', strategy='spatial')),
+        graph_cfg=dict(layout='ntu-rgb+d', strategy='spatial'),
+        pretrained='./work_dirs/siam_stgcn_80e_ntu60_xsub_keypoint_3d/epoch_70.pth',
+        freeze=True),
     cls_head=dict(
         type='STGCNHead',
         num_classes=60,
@@ -17,29 +19,29 @@ dataset_type = 'PoseDataset'
 ann_file_train = '/data_volume/data/ntu60/annot_file/xsub/train.pkl'
 ann_file_val = '/data_volume/data/ntu60/annot_file/xsub/val.pkl'
 train_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=300),
+    dict(type='PaddingWithLoop', clip_len=150),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 val_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=300),
+    dict(type='PaddingWithLoop', clip_len=150),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 test_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=300),
+    dict(type='PaddingWithLoop', clip_len=150),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 data = dict(
-    videos_per_gpu=32,
-    workers_per_gpu=2,
+    videos_per_gpu=64,
+    workers_per_gpu=8,
     test_dataloader=dict(videos_per_gpu=1),
     train=dict(
         type=dataset_type,
@@ -64,8 +66,8 @@ optimizer_config = dict(grad_clip=None)
 # learning policy
 lr_config = dict(policy='step', step=[10, 50])
 total_epochs = 80
-checkpoint_config = dict(interval=3)
-evaluation = dict(interval=3, metrics=['top_k_accuracy'])
+checkpoint_config = dict(interval=5)
+evaluation = dict(interval=5, metrics=['top_k_accuracy'])
 log_config = dict(
     interval=50,
     hooks=[
