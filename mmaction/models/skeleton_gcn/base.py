@@ -1,18 +1,18 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from mmcv.runner import auto_fp16
 
 from .. import builder
 
 
-class BaseTracker(nn.Module, metaclass=ABCMeta):
-    """Base class for recognizers.
+class BaseGCN(nn.Module, metaclass=ABCMeta):
+    """Base class for GCN-based action recognition.
 
-    All recognizers should subclass it.
+    All GCN-based recognizers should subclass it.
     All subclass should overwrite:
 
     - Methods:``forward_train``, supporting to forward when training.
@@ -20,58 +20,47 @@ class BaseTracker(nn.Module, metaclass=ABCMeta):
 
     Args:
         backbone (dict): Backbone modules to extract feature.
-        cls_head (dict): Classification head to process feature.
-        train_cfg (dict): Config for training. Default: None.
-        test_cfg (dict): Config for testing. Default: None.
+        cls_head (dict | None): Classification head to process feature.
+            Default: None.
+        train_cfg (dict | None): Config for training. Default: None.
+        test_cfg (dict | None): Config for testing. Default: None.
     """
 
     def __init__(self, backbone, cls_head=None, train_cfg=None, test_cfg=None):
         super().__init__()
+        # record the source of the backbone
+        self.backbone_from = 'mmaction2'
         self.backbone = builder.build_backbone(backbone)
-        if cls_head is not None:
-            self.cls_head = builder.build_head(cls_head)
+        self.cls_head = builder.build_head(cls_head) if cls_head else None
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self.init_weights()
 
-        self.fp16_enabled = False
-        self.register_buffer('iteration', torch.tensor(0, dtype=torch.float))
+        self.init_weights()
 
     @property
     def with_cls_head(self):
-        """bool: whether the model has a cls_head"""
+        """bool: whether the recognizer has a cls_head"""
         return hasattr(self, 'cls_head') and self.cls_head is not None
 
     def init_weights(self):
         """Initialize the model network weights."""
-        # self.backbone.init_weights()
+        if self.backbone_from in ['mmcls', 'mmaction2']:
+            self.backbone.init_weights()
+        else:
+            raise NotImplementedError('Unsupported backbone source '
+                                      f'{self.backbone_from}!')
+
         if self.with_cls_head:
             self.cls_head.init_weights()
 
-    @auto_fp16()
-    def extract_feat(self, imgs):
-        """Extract features through a backbone.
-
-        Args:
-            imgs (torch.Tensor): The input images.
-
-        Returns:
-            torch.tensor: The extracted features.
-        """
-        x = self.backbone(imgs)
-        return x
+    @abstractmethod
+    def forward_train(self, *args, **kwargs):
+        """Defines the computation performed at training."""
 
     @abstractmethod
-    def forward_train(self, imgs, labels):
-        """Defines the computation performed at every call when training."""
-        pass
-
-    @abstractmethod
-    def forward_test(self, imgs, **kwargs):
-        """Defines the computation performed at every call when evaluation and
-        testing."""
-        pass
+    def forward_test(self, *args):
+        """Defines the computation performed at testing."""
 
     @staticmethod
     def _parse_losses(losses):
@@ -109,12 +98,26 @@ class BaseTracker(nn.Module, metaclass=ABCMeta):
 
         return loss, log_vars
 
-    def forward(self, imgs, return_loss=True, **kwargs):
+    def forward(self, keypoint, label=None, return_loss=True, **kwargs):
         """Define the computation performed at every call."""
         if return_loss:
-            return self.forward_train(imgs, **kwargs)
-        else:
-            return self.forward_test(imgs, **kwargs)
+            if label is None:
+                raise ValueError('Label should not be None.')
+            return self.forward_train(keypoint, label, **kwargs)
+
+        return self.forward_test(keypoint, **kwargs)
+
+    def extract_feat(self, skeletons):
+        """Extract features through a backbone.
+
+        Args:
+            skeletons (torch.Tensor): The input skeletons.
+
+        Returns:
+            torch.tensor: The extracted features.
+        """
+        x = self.backbone(skeletons)
+        return x
 
     def train_step(self, data_batch, optimizer, **kwargs):
         """The iteration step during training.
@@ -142,16 +145,15 @@ class BaseTracker(nn.Module, metaclass=ABCMeta):
                 DDP, it means the batch size on each GPU), which is used for
                 averaging the logs.
         """
-        self.iteration += 1
+        skeletons = data_batch['keypoint']
+        label = data_batch['label']
+        label = label.squeeze(-1)
 
-        losses = self(**data_batch)
+        losses = self(skeletons, label, return_loss=True)
 
         loss, log_vars = self._parse_losses(losses)
-
         outputs = dict(
-            loss=loss,
-            log_vars=log_vars,
-            num_samples=len(next(iter(data_batch.values()))))
+            loss=loss, log_vars=log_vars, num_samples=len(skeletons.data))
 
         return outputs
 
@@ -162,17 +164,13 @@ class BaseTracker(nn.Module, metaclass=ABCMeta):
         during val epochs. Note that the evaluation after training epochs is
         not implemented with this method, but an evaluation hook.
         """
-        imgs = data_batch['imgs']
-        ref_seg_map = data_batch['ref_seg_map']
-        img_meta = data_batch['img_meta']
+        skeletons = data_batch['keypoint']
+        label = data_batch['label']
 
-        losses = self(imgs, ref_seg_map, img_meta)
+        losses = self(skeletons, label, return_loss=True)
 
         loss, log_vars = self._parse_losses(losses)
-
         outputs = dict(
-            loss=loss,
-            log_vars=log_vars,
-            num_samples=len(next(iter(data_batch.values()))))
+            loss=loss, log_vars=log_vars, num_samples=len(skeletons.data))
 
         return outputs
