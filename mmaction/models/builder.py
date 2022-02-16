@@ -13,7 +13,6 @@ HEADS = MODELS
 RECOGNIZERS = MODELS
 LOSSES = MODELS
 LOCALIZERS = MODELS
-DROP_LAYERS = MODELS
 
 
 try:
@@ -35,11 +34,6 @@ def build_backbone(cfg):
 def build_head(cfg):
     """Build head."""
     return HEADS.build(cfg)
-
-
-def build_drop_layer(cfg):
-    """Build dropout layer."""
-    return build(cfg, DROP_LAYERS)
 
 
 def build_recognizer(cfg, train_cfg=None, test_cfg=None):
