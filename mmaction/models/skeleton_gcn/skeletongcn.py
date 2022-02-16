@@ -9,15 +9,9 @@ import time
 class SkeletonGCN(BaseGCN):
     """Spatial temporal graph convolutional networks."""
 
-    # TODO: adjust initialization of the stsgcn backbone and the head
-
     def init_weights(self):
-        """Initialize the model network weights.
-        
-        Added for STSGCN.
-        """
-        if self.with_cls_head:
-            self.cls_head.init_weights()
+        super().init_weights()
+        self.backbone.freeze_weights()
 
     def forward_train(self, skeletons, labels, **kwargs):
         """Defines the computation performed at every call when training."""

@@ -8,7 +8,7 @@ from .hvu_loss import HVULoss
 from .nll_loss import NLLLoss
 from .ohem_hinge_loss import OHEMHingeLoss
 from .ssn_loss import SSNLoss
-from .sim_loss import CosineSimLoss
+from .sim_loss import CosineSimLoss 
 
 __all__ = [
     'BaseWeightedLoss', 'CrossEntropyLoss', 'NLLLoss', 'BCELossWithLogits',

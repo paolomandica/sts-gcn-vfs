@@ -1,24 +1,30 @@
 model = dict(
-    type='SimSiamBaseTracker',
+    type='SiamSkeletonGCN',
     backbone=dict(
         type='STSGCN',
         input_channels=3,
         input_time_frame=300,
         st_gcnn_dropout=0.1,
-        joints_to_consider=25),
-    img_head=dict(
+        joints_to_consider=25,
+        siamese=True),
+    sim_head=dict(
         type='SimSiamHead',
-        in_channels=512,
+        in_channels=256,
         norm_cfg=dict(type='SyncBN'),
+        aggregation_time_in=150,
+        aggregation_time_out=10,
+        aggregation_joints_in=25,
+        aggregation_joints_out=1,
         num_projection_fcs=3,
-        projection_mid_channels=512,
-        projection_out_channels=512,
+        projection_mid_channels=256,
+        projection_out_channels=256,
         num_predictor_fcs=2,
         predictor_mid_channels=128,
-        predictor_out_channels=512,
+        predictor_out_channels=256,
         with_norm=True,
         loss_feat=dict(type='CosineSimLoss', negative=False),
-        spatial_type='avg'),
+        spatial_type='avg'
+    ),
     train_cfg=None,
     test_cfg=None)
 
@@ -47,7 +53,7 @@ test_pipeline = [
     dict(type='ToTensor', keys=['keypoint'])
 ]
 data = dict(
-    videos_per_gpu=16,
+    videos_per_gpu=92,
     workers_per_gpu=8,
     test_dataloader=dict(videos_per_gpu=1),
     train=dict(
@@ -67,33 +73,34 @@ data = dict(
         pipeline=test_pipeline))
 
 # optimizer
-optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True) # dict(type='Adam', lr=1e-02, weight_decay=1e-05) 
+# optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True)
+optimizer = dict(type='Adam', lr=1e-04, weight_decay=1e-05)
 optimizer_config = dict(grad_clip=None)
 # learning policy
-lr_config = dict(policy='step', step=[15,25,35,50])
-total_epochs = 70
+lr_config = dict(policy='step', step=[50, 100, 150])
+total_epochs = 200
 checkpoint_config = dict(interval=5)
 evaluation = dict(interval=5, metrics=['top_k_accuracy'])
 log_config = dict(
-    interval=10,
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='WandbLoggerHook',
-        #      init_kwargs=dict(
-        #          project='skeleton',
-        #          entity='sapienzavideocontrastive',
-        #          dir='wandb',
-        #          config=dict(
-        #              model=model,
-        #              train_pipeline=train_pipeline,
-        #              data=data,
-        #              optimizer=optimizer,
-        #              optimizer_config=optimizer_config,
-        #              lr_config=lr_config,
-        #              total_epochs=total_epochs
-        #          )
-        #      ),
-        #      interval=10)
+        dict(type='WandbLoggerHook',
+             init_kwargs=dict(
+                 project='skeleton',
+                 entity='sapienzavideocontrastive',
+                 dir='wandb',
+                 config=dict(
+                     model=model,
+                     train_pipeline=train_pipeline,
+                     data=data,
+                     optimizer=optimizer,
+                     optimizer_config=optimizer_config,
+                     lr_config=lr_config,
+                     total_epochs=total_epochs
+                 )
+             ),
+             interval=10)
     ])
 
 # runtime settings
@@ -102,4 +109,5 @@ log_level = 'INFO'
 work_dir = './work_dirs/siam_stsgcn_80e_ntu60_xsub_keypoint_3d/'
 load_from = None
 resume_from = None
+find_unused_parameters = False
 workflow = [('train', 1)]

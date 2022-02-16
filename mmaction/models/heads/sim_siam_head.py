@@ -13,7 +13,6 @@ def build_norm1d(cfg, num_features):
 @HEADS.register_module()
 class SimSiamHead(nn.Module):
     """Classification head for I3D.
-
     Args:
         num_classes (int): Number of classes to be classified.
         in_channels (int): Number of channels in input feature.
@@ -35,6 +34,10 @@ class SimSiamHead(nn.Module):
                  act_cfg=None,
                  drop_layer_cfg=None,
                  order=('pool', 'drop'),
+                 aggregation_time_in=150,
+                 aggregation_time_out=10,
+                 aggregation_joints_in=25,
+                 aggregation_joints_out=1,
                  num_projection_fcs=3,
                  projection_mid_channels=2048,
                  projection_out_channels=2048,
@@ -45,13 +48,15 @@ class SimSiamHead(nn.Module):
                  drop_predictor_fc=False,
                  with_norm=True,
                  loss_feat=dict(type='CosineSimLoss', negative=False),
-                 spatial_type='avg'):
+                 spatial_type='avg',
+                 num_person=2):
         super().__init__()
         self.in_channels = in_channels
         self.num_convs = num_convs
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.act_cfg = act_cfg
+        self.num_person = num_person
         self.with_norm = with_norm
         self.loss_feat = build_loss(loss_feat)
         convs = []
@@ -73,6 +78,9 @@ class SimSiamHead(nn.Module):
             self.convs = nn.Sequential(*convs)
         else:
             self.convs = nn.Identity()
+
+        # self.time_aggregation = nn.Linear(aggregation_time_in, aggregation_time_out)
+        # self.joint_aggregation = nn.Linear(aggregation_joints_in, aggregation_joints_out)
 
         projection_fcs = []
         for i in range(num_projection_fcs):
@@ -141,21 +149,30 @@ class SimSiamHead(nn.Module):
 
     def forward(self, x):
         """Defines the computation performed at every call.
-
         Args:
             x (torch.Tensor): The input data.
-
         Returns:
             torch.Tensor: The classification scores for input samples.
         """
-        # [N, in_channels, 4, 7, 7]
+
+        # B, C, T, V = x.shape
+        # x = x.permute(0, 1, 3, 2).contiguous().view(-1, T)
+        # x = self.time_aggregation(x)
+        # x = x.view(B, C, V, -1).permute(0, 1, 3, 2)
+        # B, C, T, V = x.shape
+        # x = x.contiguous().view(-1, V)
+        # x = self.joint_aggregation(x)
+        # x = x.view(B, C, T).permute(0, 2, 1).flatten(0, 1)
+
         x = self.convs(x)
         for layer in self.order:
             if layer == 'pool':
                 x = self.avg_pool(x)
                 x = x.flatten(1)
+                x = x.view(x.shape[0] // self.num_person, self.num_person, -1).mean(dim=1)
             if layer == 'drop':
                 x = self.dropout(x)
+
         z = self.projection_fcs(x)
         p = self.predictor_fcs(z)
 
@@ -169,115 +186,5 @@ class SimSiamHead(nn.Module):
 
         loss_feat = self.loss_feat(p1, z2.detach()) * 0.5 + self.loss_feat(
             p2, z1.detach()) * 0.5
-        losses['loss_feat'] = loss_feat * weight
-        return losses
-
-
-@HEADS.register_module()
-class DenseSimSiamHead(nn.Module):
-    """Classification head for I3D.
-
-    Args:
-        num_classes (int): Number of classes to be classified.
-        in_channels (int): Number of channels in input feature.
-        loss_feat (dict): Config for building loss.
-            Default: dict(type='CrossEntropyLoss')
-        spatial_type (str): Pooling type in spatial dimension. Default: 'avg'.
-        kwargs (dict, optional): Any keyword argument to be used to initialize
-            the head.
-    """
-
-    def __init__(self,
-                 in_channels,
-                 kernel_size=1,
-                 conv_cfg=dict(type='Conv2d'),
-                 norm_cfg=dict(type='BN'),
-                 act_cfg=dict(type='ReLU'),
-                 num_projection_convs=3,
-                 projection_mid_channels=2048,
-                 projection_out_channels=2048,
-                 num_predictor_convs=2,
-                 predictor_mid_channels=512,
-                 predictor_out_channels=2048,
-                 predictor_plugin=None,
-                 loss_feat=dict(type='CosineSimLoss', negative=False)):
-        super().__init__()
-        self.in_channels = in_channels
-        self.conv_cfg = conv_cfg
-        self.norm_cfg = norm_cfg
-        self.act_cfg = act_cfg
-        self.loss_feat = build_loss(loss_feat)
-        projection_convs = []
-        last_channels = in_channels
-        for i in range(num_projection_convs):
-            is_last = i == num_projection_convs - 1
-            out_channels = projection_out_channels if is_last else \
-                projection_mid_channels
-            projection_convs.append(
-                ConvModule(
-                    last_channels,
-                    out_channels,
-                    kernel_size=kernel_size,
-                    padding=kernel_size // 2,
-                    conv_cfg=self.conv_cfg,
-                    norm_cfg=self.norm_cfg,
-                    # no relu on output
-                    act_cfg=self.act_cfg if not is_last else None))
-            last_channels = out_channels
-        if len(projection_convs) > 0:
-            self.projection_convs = nn.Sequential(*projection_convs)
-        else:
-            self.projection_convs = nn.Identity()
-
-        predictor_convs = []
-        for i in range(num_predictor_convs):
-            is_last = i == num_predictor_convs - 1
-            out_channels = predictor_out_channels if is_last else \
-                predictor_mid_channels
-            predictor_convs.append(
-                ConvModule(
-                    last_channels,
-                    out_channels,
-                    kernel_size=kernel_size,
-                    padding=kernel_size // 2,
-                    conv_cfg=self.conv_cfg,
-                    # no bn/relu on output
-                    norm_cfg=self.norm_cfg if not is_last else None,
-                    act_cfg=self.act_cfg if not is_last else None))
-            last_channels = out_channels
-        if len(projection_convs) > 0:
-            self.predictor_convs = nn.Sequential(*predictor_convs)
-        else:
-            self.predictor_convs = nn.Identity()
-        if predictor_plugin is not None:
-            self.predictor_plugin = build_plugin_layer(predictor_plugin)[1]
-        else:
-            self.predictor_plugin = nn.Identity()
-
-    def init_weights(self):
-        """Initiate the parameters from scratch."""
-        pass
-
-    def forward(self, x):
-        """Defines the computation performed at every call.
-
-        Args:
-            x (torch.Tensor): The input data.
-
-        Returns:
-            torch.Tensor: The classification scores for input samples.
-        """
-        # [N, in_channels, 4, 7, 7]
-        z = self.projection_convs(x)
-        p = self.predictor_convs(self.predictor_plugin(z))
-
-        return z, p
-
-    def loss(self, p1, z1, p2, z2, mask12=None, mask21=None, weight=1.):
-
-        losses = dict()
-
-        loss_feat = self.loss_feat(p1, z2.detach(
-        ), mask12) * 0.5 + self.loss_feat(p2, z1.detach(), mask21) * 0.5
         losses['loss_feat'] = loss_feat * weight
         return losses

@@ -13,7 +13,8 @@ HEADS = MODELS
 RECOGNIZERS = MODELS
 LOSSES = MODELS
 LOCALIZERS = MODELS
-DROP_LAYERS = Registry('drop_layer')
+DROP_LAYERS = MODELS
+
 
 try:
     from mmdet.models.builder import DETECTORS, build_detector
@@ -62,6 +63,11 @@ def build_recognizer(cfg, train_cfg=None, test_cfg=None):
 def build_loss(cfg):
     """Build loss."""
     return LOSSES.build(cfg)
+
+
+def build_drop_layer(cfg):
+    """Build dropout layer."""
+    return DROP_LAYERS.build(cfg)
 
 
 def build_localizer(cfg):

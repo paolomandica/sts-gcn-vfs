@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from .base import BaseTracker
-from .sim_siam_base_tracker import SimSiamBaseTracker
+from .base import BaseGCN
+from .skeletongcn import SkeletonGCN
+from .siam_skeletongcn import SiamSkeletonGCN
 
-__all__ = ['BaseTracker', 'SimSiamBaseTracker']
+__all__ = ['BaseGCN', 'SkeletonGCN', 'SiamSkeletonGCN']

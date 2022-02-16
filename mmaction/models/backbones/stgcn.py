@@ -194,6 +194,7 @@ class STGCN(nn.Module):
                  edge_importance_weighting=True,
                  data_bn=True,
                  pretrained=None,
+                 freeze=False,
                  **kwargs):
         super().__init__()
 
@@ -235,6 +236,7 @@ class STGCN(nn.Module):
             self.edge_importance = [1 for _ in self.st_gcn_networks]
 
         self.pretrained = pretrained
+        self.freeze = freeze
 
     def init_weights(self):
         """Initiate the parameters either from existing checkpoint or from
@@ -243,7 +245,8 @@ class STGCN(nn.Module):
             logger = get_root_logger()
             logger.info(f'load model from: {self.pretrained}')
 
-            load_checkpoint(self, self.pretrained, strict=False, logger=logger)
+            load_checkpoint(self, self.pretrained, strict=False,
+                            logger=logger, revise_keys=[(r'^backbone\.', '')])
 
         elif self.pretrained is None:
             for m in self.modules():
@@ -255,6 +258,13 @@ class STGCN(nn.Module):
                     constant_init(m, 1)
         else:
             raise TypeError('pretrained must be a str or None')
+
+    def freeze_weights(self):
+        """Prevent all the parameters from being optimized before
+        ``self.frozen_stages``."""
+        if self.freeze:
+            self.requires_grad_(requires_grad=False)
+            self.eval()
 
     def forward(self, x):
         """Defines the computation performed at every call.
