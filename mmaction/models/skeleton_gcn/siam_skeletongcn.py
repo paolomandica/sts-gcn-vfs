@@ -36,13 +36,19 @@ class SiamSkeletonGCN(BaseGCN):
         if self.with_sim_head:
             self.sim_head.init_weights()
 
-    def forward_sim_head(self, x1, x2, T):
+    def compact_clips(self, x, N):
+        return x.view(x.shape[0]//N, N, -1).mean(dim=1)
+
+    def forward_sim_head(self, x1, x2, T, N):
 
         B, C, _, V = x1.shape
 
         losses = dict()
         z1, p1 = self.sim_head(x1)
         z2, p2 = self.sim_head(x2)  # .permute(0,2,1).flatten(0,1)
+
+        z1, p1 = self.compact_clips(z1, N), self.compact_clips(p1, N)
+        z2, p2 = self.compact_clips(z2, N), self.compact_clips(p2, N)
 
         # loss_weight = 1. / T
         loss_weight = 1.
@@ -81,11 +87,12 @@ class SiamSkeletonGCN(BaseGCN):
 
         x1 = self.extract_feat(skeletons_1)
         x2 = self.extract_feat(skeletons_2)
-        
+
         # x1, x2 are (128, 256, 150, 25) = (BxM, C_tilde, T/2, V)
 
         if self.with_sim_head:
-            loss_sim_head = self.forward_sim_head(x1, x2, self.sim_head_cfg.aggregation_time_out)
+            loss_sim_head = self.forward_sim_head(
+                x1, x2, self.sim_head_cfg.aggregation_time_out, N//2)
             losses.update(add_prefix(loss_sim_head, prefix='sim_head'))
 
         return losses
