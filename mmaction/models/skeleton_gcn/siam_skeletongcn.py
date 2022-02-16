@@ -74,11 +74,14 @@ class SiamSkeletonGCN(BaseGCN):
 
         # (64, 3, 300, 25, 2)
         B, C, T, V, M = skeletons.shape
-        skeletons_1, skeletons_2 = skeletons[:, :, :T//2], skeletons[:, :, T//2:]
+        skeletons = skeletons.view(B, C, -1, T//10, V, M)
+        B, C, N, T, V, M = skeletons.shape
+        skeletons_1 = skeletons[:, :, :N//2].reshape(B*N//2, C, T, V, M)
+        skeletons_2 = skeletons[:, :, N//2:].reshape(B*N//2, C, T, V, M)
 
         x1 = self.extract_feat(skeletons_1)
         x2 = self.extract_feat(skeletons_2)
-
+        
         # x1, x2 are (128, 256, 150, 25) = (BxM, C_tilde, T/2, V)
 
         if self.with_sim_head:

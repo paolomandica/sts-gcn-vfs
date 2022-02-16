@@ -197,10 +197,7 @@ class STSGCN(nn.Module):
                  bias=True):
 
         super().__init__()
-        if siamese:
-            self.input_time_frame = input_time_frame//2
-        else:
-            self.input_time_frame = input_time_frame
+        self.input_time_frame = input_time_frame
         # self.output_time_frame=output_time_frame
         self.joints_to_consider = joints_to_consider
         self.st_gcnns = nn.ModuleList()
