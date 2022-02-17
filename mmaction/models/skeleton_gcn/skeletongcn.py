@@ -18,8 +18,14 @@ class SkeletonGCN(BaseGCN):
         assert self.with_cls_head
         losses = dict()
 
+        B, C, T, V, M = skeletons.shape
+        skeletons = skeletons.view(B, C, -1, T//10, V, M)
+        B, C, N, T, V, M = skeletons.shape
+        skeletons = skeletons.reshape(B*N, C, T, V, M)
+
         x = self.extract_feat(skeletons)
         output = self.cls_head(x)
+        output = output.view(B, N, -1).mean(dim=1)
         gt_labels = labels.squeeze(-1)
         loss = self.cls_head.loss(output, gt_labels)
         losses.update(loss)
@@ -29,6 +35,12 @@ class SkeletonGCN(BaseGCN):
     def forward_test(self, skeletons):
         """Defines the computation performed at every call when evaluation and
         testing."""
+
+        B, C, T, V, M = skeletons.shape
+        skeletons = skeletons.view(B, C, -1, T//10, V, M)
+        B, C, N, T, V, M = skeletons.shape
+        skeletons = skeletons.reshape(B*N, C, T, V, M)
+
         x = self.extract_feat(skeletons)
         assert self.with_cls_head
         output = self.cls_head(x)
