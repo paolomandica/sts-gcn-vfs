@@ -3,11 +3,11 @@ model = dict(
     backbone=dict(
         type='STSGCN',
         input_channels=3,
-        input_time_frame=150,
+        input_time_frame=30,
         st_gcnn_dropout=0.1,
         joints_to_consider=25,
         siamese=False,
-        pretrained='./work_dirs/siam_stsgcn_80e_ntu60_xsub_keypoint_3d/epoch_70.pth',
+        pretrained='./work_dirs/siam_stsgcn_300_ntu60_xsub_keypoint_3d/epoch_180.pth',
         freeze=True),
     cls_head=dict(
         type='STGCNHead',
@@ -21,28 +21,28 @@ dataset_type = 'PoseDataset'
 ann_file_train = '/data_volume/data/ntu60/annot_file/xsub/train.pkl'
 ann_file_val = '/data_volume/data/ntu60/annot_file/xsub/val.pkl'
 train_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=150),
+    dict(type='PaddingWithLoop', clip_len=300),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 val_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=150),
+    dict(type='PaddingWithLoop', clip_len=300),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 test_pipeline = [
-    dict(type='PaddingWithLoop', clip_len=150),
+    dict(type='PaddingWithLoop', clip_len=300),
     dict(type='PoseDecode'),
     dict(type='FormatGCNInput', input_format='NCTVM'),
     dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
     dict(type='ToTensor', keys=['keypoint'])
 ]
 data = dict(
-    videos_per_gpu=92,
+    videos_per_gpu=112,
     workers_per_gpu=8,
     test_dataloader=dict(videos_per_gpu=1),
     train=dict(

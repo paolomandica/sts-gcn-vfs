@@ -45,4 +45,8 @@ class SkeletonGCN(BaseGCN):
         assert self.with_cls_head
         output = self.cls_head(x)
 
+        # TODO: check if the code below is needed or not
+        # breakpoint()
+        # output = output.view(B, N, -1).mean(dim=1)
+
         return output.data.cpu().numpy()

@@ -34,10 +34,6 @@ class SimSiamHead(nn.Module):
                  act_cfg=None,
                  drop_layer_cfg=None,
                  order=('pool', 'drop'),
-                 aggregation_time_in=150,
-                 aggregation_time_out=10,
-                 aggregation_joints_in=25,
-                 aggregation_joints_out=1,
                  num_projection_fcs=3,
                  projection_mid_channels=2048,
                  projection_out_channels=2048,
@@ -78,9 +74,6 @@ class SimSiamHead(nn.Module):
             self.convs = nn.Sequential(*convs)
         else:
             self.convs = nn.Identity()
-
-        # self.time_aggregation = nn.Linear(aggregation_time_in, aggregation_time_out)
-        # self.joint_aggregation = nn.Linear(aggregation_joints_in, aggregation_joints_out)
 
         projection_fcs = []
         for i in range(num_projection_fcs):
