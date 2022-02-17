@@ -53,7 +53,7 @@ test_pipeline = [
     dict(type='ToTensor', keys=['keypoint'])
 ]
 data = dict(
-    videos_per_gpu=92,
+    videos_per_gpu=112,
     workers_per_gpu=8,
     test_dataloader=dict(videos_per_gpu=1),
     train=dict(
@@ -73,13 +73,13 @@ data = dict(
         pipeline=test_pipeline))
 
 # optimizer
-# optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True)
-optimizer = dict(type='Adam', lr=1e-04, weight_decay=1e-05)
+optimizer = dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, nesterov=True)
+# optimizer = dict(type='Adam', lr=1e-04, weight_decay=1e-05)
 optimizer_config = dict(grad_clip=None)
 # learning policy
-lr_config = dict(policy='step', step=[50, 100, 150])
-total_epochs = 200
-checkpoint_config = dict(interval=5)
+lr_config = dict(policy='step', step=[150, 250])
+total_epochs = 300
+checkpoint_config = dict(interval=10)
 evaluation = dict(interval=5, metrics=['top_k_accuracy'])
 log_config = dict(
     interval=50,
@@ -106,7 +106,7 @@ log_config = dict(
 # runtime settings
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/siam_stsgcn_80e_ntu60_xsub_keypoint_3d/'
+work_dir = './work_dirs/siam_stsgcn_300_ntu60_xsub_keypoint_3d/'
 load_from = None
 resume_from = None
 find_unused_parameters = False
